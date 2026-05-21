@@ -6,6 +6,8 @@ interface SpendFormProps {
   onAudit: (data: any) => void
 }
 
+type ToolName = 'cursor' | 'copilot' | 'claude' | 'chatgpt' | 'gemini' | 'openaiApi' | 'anthropicApi' | 'windsurf'
+
 export default function SpendForm({ onAudit }: SpendFormProps) {
   const [formData, setFormData] = useState({
     teamSize: 1,
@@ -31,7 +33,7 @@ export default function SpendForm({ onAudit }: SpendFormProps) {
     localStorage.setItem('audit-form-data', JSON.stringify(formData))
   }, [formData])
 
-  const updateTool = (tool: string, field: string, value: any) => {
+  const updateTool = (tool: ToolName, field: string, value: any) => {
     setFormData({
       ...formData,
       tools: { ...formData.tools, [tool]: { ...formData.tools[tool], [field]: value } }
