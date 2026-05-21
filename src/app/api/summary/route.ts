@@ -24,7 +24,7 @@ Write in a helpful, actionable tone. Be honest if savings are low.`
   } catch (error) {
     console.error('Gemini API error:', error)
     return NextResponse.json({ 
-      summary: `Based on your audit, you could save $${potentialSavings} per month by optimizing your AI tools.`
+      summary: `Based on your audit, you could save money by optimizing your AI tools.`
     })
   }
 }
