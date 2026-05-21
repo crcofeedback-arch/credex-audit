@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 
 export default function SharedAuditPage() {
   const params = useParams()
-  const id = params.id
+  const id = params.id as string
   const [data, setData] = useState<any>(null)
   const [notFound, setNotFound] = useState(false)
 

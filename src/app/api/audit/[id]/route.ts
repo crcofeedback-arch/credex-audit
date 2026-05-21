@@ -3,9 +3,10 @@ import { audits } from '../../save-audit/route'
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const audit = audits.get(params.id)
+  const { id } = await params
+  const audit = audits.get(id)
   
   if (!audit) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
