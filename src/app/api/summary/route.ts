@@ -1,56 +1,30 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from 'next/server'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
-export async function POST(req: NextRequest) {
-  const { auditResult } = await req.json();
-  const { recommendations, totalMonthlySavings, input } = auditResult;
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || '')
 
-  const toolList = recommendations
-    .map((r: any) => `${r.tool}: $${r.currentSpend}/mo`)
-    .join(", ");
-
-  const prompt = `You are a financial advisor specializing in AI tool costs for startups.
-
-A team of ${input.teamSize} people uses these AI tools: ${toolList}.
-Their primary use case is ${input.useCase}.
-Total potential monthly savings identified: $${totalMonthlySavings}.
-
-Write a 100-word personalized audit summary. Be specific, honest, and actionable.
-If savings are low, acknowledge they are spending well. Do not be salesy.
-Start directly with the insight, no greetings or preamble.`;
-
+export async function POST(request: Request) {
   try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY || "",
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 200,
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
+    const { totalSpend, potentialSavings, results } = await request.json()
 
-    const data = await response.json();
-    const summary = data.content?.[0]?.text || getFallbackSummary(auditResult);
-    return NextResponse.json({ summary });
-  } catch (err) {
-    return NextResponse.json({ summary: getFallbackSummary(auditResult) });
+    const prompt = `You are an AI spending advisor. Write a short, personalized summary (max 150 words) for a user who just audited their AI tool spending.
+
+Facts:
+- Total monthly spend: $${totalSpend}
+- Potential monthly savings: $${potentialSavings}
+- Savings percentage: ${((potentialSavings / totalSpend) * 100).toFixed(1)}%
+
+Write in a helpful, actionable tone. Be honest if savings are low.`
+
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro' })
+    const result = await model.generateContent(prompt)
+    const summary = result.response.text()
+
+    return NextResponse.json({ summary })
+  } catch (error) {
+    console.error('Gemini API error:', error)
+    return NextResponse.json({ 
+      summary: `Based on your audit, you could save $${potentialSavings} per month by optimizing your AI tools.`
+    })
   }
-}
-
-function getFallbackSummary(auditResult: any): string {
-  const { totalMonthlySavings, totalAnnualSavings, input } = auditResult;
-
-  if (totalMonthlySavings > 500) {
-    return `Your team of ${input.teamSize} has significant AI spend optimizations available. By adjusting plans and switching where appropriate, you could save $${totalMonthlySavings}/month — that is $${totalAnnualSavings}/year back in your budget.`;
-  }
-
-  if (totalMonthlySavings < 100) {
-    return `Your team of ${input.teamSize} is spending efficiently on AI tools. Your current stack looks well-matched to your ${input.useCase} use case.`;
-  }
-
-  return `Your team of ${input.teamSize} has some meaningful optimizations available. Switching plans where flagged could save $${totalMonthlySavings}/month ($${totalAnnualSavings}/year).`;
 }

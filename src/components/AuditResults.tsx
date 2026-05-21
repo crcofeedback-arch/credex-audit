@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
 interface AuditResultsProps {
@@ -14,6 +14,28 @@ export default function AuditResults({ results, totalSpend, potentialSavings, on
   const [email, setEmail] = useState('')
   const [captured, setCaptured] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [aiSummary, setAiSummary] = useState('')
+  const [loadingSummary, setLoadingSummary] = useState(true)
+
+  // Fetch AI summary
+  useEffect(() => {
+    async function fetchSummary() {
+      try {
+        const res = await fetch('/api/summary', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ totalSpend, potentialSavings, results })
+        })
+        const data = await res.json()
+        setAiSummary(data.summary)
+      } catch (error) {
+        setAiSummary(`You could save $${potentialSavings} per month by optimizing your AI tools.`)
+      } finally {
+        setLoadingSummary(false)
+      }
+    }
+    fetchSummary()
+  }, [totalSpend, potentialSavings, results])
 
   const handleEmailCapture = async () => {
     if (!email) return
@@ -49,7 +71,8 @@ export default function AuditResults({ results, totalSpend, potentialSavings, on
     <div className="max-w-6xl mx-auto bg-white rounded-lg shadow-xl p-8">
       <h2 className="text-2xl font-bold mb-6">Audit Results</h2>
       
-      <div className="grid grid-cols-2 gap-6 mb-8">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 gap-6 mb-6">
         <div className="bg-blue-50 p-6 rounded-lg">
           <p className="text-sm text-blue-600 font-semibold">Total Monthly Spend</p>
           <p className="text-3xl font-bold text-blue-900">${totalSpend}</p>
@@ -60,6 +83,17 @@ export default function AuditResults({ results, totalSpend, potentialSavings, on
         </div>
       </div>
 
+      {/* AI Summary Section */}
+      <div className="bg-purple-50 p-4 rounded-lg mb-6">
+        <h3 className="font-semibold text-purple-800 mb-2">🤖 AI Advisor Summary</h3>
+        {loadingSummary ? (
+          <p className="text-purple-600">Generating insights...</p>
+        ) : (
+          <p className="text-purple-700">{aiSummary}</p>
+        )}
+      </div>
+
+      {/* Results Table */}
       <div className="overflow-x-auto mb-8">
         <table className="min-w-full bg-white border border-gray-200">
           <thead className="bg-gray-50">
