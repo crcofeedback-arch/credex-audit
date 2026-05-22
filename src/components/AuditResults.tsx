@@ -14,34 +14,13 @@ export default function AuditResults({ results, totalSpend, potentialSavings, on
   const [email, setEmail] = useState('')
   const [captured, setCaptured] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [aiSummary, setAiSummary] = useState('')
-  const [loadingSummary, setLoadingSummary] = useState(true)
-
-  // Fetch AI summary
-  useEffect(() => {
-    async function fetchSummary() {
-      try {
-        const res = await fetch('/api/summary', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ totalSpend, potentialSavings, results })
-        })
-        const data = await res.json()
-        setAiSummary(data.summary)
-      } catch (error) {
-        setAiSummary(`You could save $${potentialSavings} per month by optimizing your AI tools.`)
-      } finally {
-        setLoadingSummary(false)
-      }
-    }
-    fetchSummary()
-  }, [totalSpend, potentialSavings, results])
+  const [sharing, setSharing] = useState(false)
 
   const handleEmailCapture = async () => {
     if (!email) return
     setLoading(true)
     
-    const { error } = await supabase
+    const { error: supabaseError } = await supabase
       .from('leads')
       .insert([{ 
         email: email,
@@ -50,10 +29,38 @@ export default function AuditResults({ results, totalSpend, potentialSavings, on
         team_size: 1
       }])
     
-    if (!error) {
-      setCaptured(true)
+    if (!supabaseError) {
+      try {
+        await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, totalSpend, potentialSavings })
+        })
+        setCaptured(true)
+      } catch (emailError) {
+        console.error('Email send failed:', emailError)
+        setCaptured(true)
+      }
     }
     setLoading(false)
+  }
+
+  const handleShare = async () => {
+    setSharing(true)
+    try {
+      const res = await fetch('/api/save-audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ results, totalSpend, potentialSavings })
+      })
+      const data = await res.json()
+      const url = `${window.location.origin}/audit/${data.id}`
+      await navigator.clipboard.writeText(url)
+      alert('Share link copied to clipboard!')
+    } catch (error) {
+      alert('Failed to create share link')
+    }
+    setSharing(false)
   }
 
   if (!results || results.length === 0) {
@@ -71,8 +78,7 @@ export default function AuditResults({ results, totalSpend, potentialSavings, on
     <div className="max-w-6xl mx-auto bg-white rounded-lg shadow-xl p-8">
       <h2 className="text-2xl font-bold mb-6">Audit Results</h2>
       
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-2 gap-6 mb-8">
         <div className="bg-blue-50 p-6 rounded-lg">
           <p className="text-sm text-blue-600 font-semibold">Total Monthly Spend</p>
           <p className="text-3xl font-bold text-blue-900">${totalSpend}</p>
@@ -83,17 +89,6 @@ export default function AuditResults({ results, totalSpend, potentialSavings, on
         </div>
       </div>
 
-      {/* AI Summary Section */}
-      <div className="bg-purple-50 p-4 rounded-lg mb-6">
-        <h3 className="font-semibold text-purple-800 mb-2">🤖 AI Advisor Summary</h3>
-        {loadingSummary ? (
-          <p className="text-purple-600">Generating insights...</p>
-        ) : (
-          <p className="text-purple-700">{aiSummary}</p>
-        )}
-      </div>
-
-      {/* Results Table */}
       <div className="overflow-x-auto mb-8">
         <table className="min-w-full bg-white border border-gray-200">
           <thead className="bg-gray-50">
@@ -119,7 +114,6 @@ export default function AuditResults({ results, totalSpend, potentialSavings, on
         </table>
       </div>
 
-      {/* Email Capture Section */}
       <div className="border-t pt-6 mt-6">
         <h3 className="text-lg font-semibold mb-3">Get Your Full Report</h3>
         <p className="text-gray-600 mb-4">Enter your email to get a detailed PDF report and optimization checklist.</p>
@@ -145,10 +139,14 @@ export default function AuditResults({ results, totalSpend, potentialSavings, on
         )}
       </div>
 
-      {/* Reset Button */}
-      <button onClick={onReset} className="w-full mt-6 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold">
-        Analyze Another Setup
-      </button>
+      <div className="flex gap-4 mt-6">
+        <button onClick={onReset} className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold">
+          Analyze Another Setup
+        </button>
+        <button onClick={handleShare} disabled={sharing} className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-semibold">
+          {sharing ? 'Creating...' : '🔗 Share Results'}
+        </button>
+      </div>
     </div>
   )
 }
